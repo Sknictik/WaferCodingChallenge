@@ -16,6 +16,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    sourceSets {
+        debug { res.srcDirs = ['src/main/res', 'src/androidTest/res'] }
+    }
 }
 
 dependencies {
