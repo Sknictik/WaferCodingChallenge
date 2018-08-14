@@ -6,44 +6,91 @@ import android.net.NetworkInfo;
 import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.support.v7.widget.DividerItemDecoration;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.view.View;
+import android.widget.ProgressBar;
+import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import sknictik.wafercodingchallenge.R;
+import sknictik.wafercodingchallenge.WaferApplication;
+import sknictik.wafercodingchallenge.domain.model.Info;
+import sknictik.wafercodingchallenge.presentation.utils.ResourceMessage;
 
 /**
  * Normally screen logic should be divided in three parts: UI logic (Activity class), Presenter and StateModel.
  * But writing my own MVP library would take too much time, so all presentation layer logic for this screen
  * will be written here.
  */
-public class MainActivity extends FragmentActivity implements DownloadCallback<List<InfoModel>> {
+public class MainActivity extends FragmentActivity implements DownloadCallback<List<Info>> {
+
+    private static final String INFO_LIST_KEY = "infoList";
 
     private MainNetworkFragment mainNetworkFragment;
 
     //By default set to false
     private boolean isDownloading;
 
+    private RecyclerView recyclerView;
+    private ProgressBar progress;
+    //ArrayList required for serialization in bundle
+    private ArrayList<Info> infoList;
+
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mainNetworkFragment = MainNetworkFragment.getInstance(getSupportFragmentManager(), ???Url?);
+        initViews();
 
+        mainNetworkFragment = MainNetworkFragment.getInstance(getSupportFragmentManager());
+
+        if (savedInstanceState != null) {
+            infoList = (ArrayList<Info>) savedInstanceState.getSerializable(INFO_LIST_KEY);
+            if (infoList != null) {
+                fillListAdapter(infoList);
+            }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (infoList == null) {
+            startDownload();
+        }
+    }
+
+    private void initViews() {
+        recyclerView = findViewById(R.id.info_list);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
+        recyclerView.setAdapter(new InfoListAdapter());
+        recyclerView.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
+        progress = findViewById(R.id.progress);
     }
 
     private void startDownload() {
         if (!isDownloading && mainNetworkFragment != null) {
             // Execute the async download.
-            mainNetworkFragment.startDownload();
+            mainNetworkFragment.startDownload(getWaferApplication().getCommandFactory().getInfoCommand());
             isDownloading = true;
+            setProgressState(true);
         }
-
     }
 
     @Override
-    public void updateFromDownload(final List<InfoModel> result) {
-        //TODO update UI here based on download result
+    public void onSuccess(final List<Info> result) {
+        infoList = new ArrayList<>(result);
+        fillListAdapter(infoList);
+    }
+
+    @Override
+    public void onError(ResourceMessage errorMsg) {
+        Toast.makeText(this, getWaferApplication().getResourceMessageFormatter().format(errorMsg), Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -59,44 +106,38 @@ public class MainActivity extends FragmentActivity implements DownloadCallback<L
             networkInfo = null;
         }
         return networkInfo;
-
-    }
-
-    @Override
-    public void onProgressUpdate(int progressCode, int percentComplete) {
-        switch(progressCode) {
-            // You can add UI behavior for progress updates here.
-            case Progress.ERROR: {
-                //TODO show error dialog or toast
-                break;
-            }
-            case Progress.CONNECT_SUCCESS:
-                //Do nothing
-                break;
-            case Progress.GET_INPUT_STREAM_SUCCESS:
-                //TODO ??
-                break;
-            case Progress.PROCESS_INPUT_STREAM_IN_PROGRESS: {
-                //TODO show progress?
-                break;
-            }
-            case Progress.PROCESS_INPUT_STREAM_SUCCESS: {
-                //TODO remove progress
-                break;
-            }
-            default:
-                //TODO show unknown progress status error
-        }
-
     }
 
     @Override
     public void finishDownloading() {
         isDownloading = false;
+        setProgressState(false);
+
         if (mainNetworkFragment != null) {
             mainNetworkFragment.cancelDownload();
         }
     }
 
-    //TODO onSaveInstanceState
+    private void fillListAdapter(List<Info> infoList) {
+        InfoListAdapter adapter = ((InfoListAdapter) recyclerView.getAdapter());
+
+        if (adapter != null) {
+            adapter.setItems(infoList);
+        }
+    }
+
+    private WaferApplication getWaferApplication() {
+        return (WaferApplication) getApplication();
+    }
+
+    private void setProgressState(boolean isDownloading) {
+        progress.setVisibility(isDownloading ? View.VISIBLE : View.GONE);
+        recyclerView.setVisibility(isDownloading ? View.GONE : View.VISIBLE);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putSerializable(INFO_LIST_KEY, infoList);
+        super.onSaveInstanceState(outState);
+    }
 }

@@ -11,41 +11,42 @@ import android.support.v4.app.FragmentManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+
+import sknictik.wafercodingchallenge.domain.IInfoCommand;
+import sknictik.wafercodingchallenge.domain.model.Info;
+import sknictik.wafercodingchallenge.presentation.utils.ResourceMessage;
 
 public class MainNetworkFragment extends Fragment {
 
     public static final String TAG = "NetworkFragment";
 
-    private static final String ARGS_URL_KEY = "args:urlKey";
-
-    private DownloadCallback<List<InfoModel>> downloadCallback;
+    private DownloadCallback<List<Info>> downloadCallback;
     private DownloadTask downloadTask;
-    private String urlString;
 
-    public static MainNetworkFragment getInstance(final FragmentManager fragmentManager, final String url) {
-        final MainNetworkFragment networkFragment = new MainNetworkFragment();
-        final Bundle args = new Bundle();
-        args.putString(ARGS_URL_KEY, url);
-        networkFragment.setArguments(args);
-        fragmentManager.beginTransaction().add(networkFragment, TAG).commit();
+    public static MainNetworkFragment getInstance(final FragmentManager fragmentManager) {
+        MainNetworkFragment networkFragment = (MainNetworkFragment) fragmentManager
+                .findFragmentByTag(MainNetworkFragment.TAG);
+        if (networkFragment == null) {
+            networkFragment = new MainNetworkFragment();
+            fragmentManager.beginTransaction().add(networkFragment, TAG).commit();
+        }
         return networkFragment;
-    }
-
-    @Override
-    public void onCreate(@Nullable final Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        //Deliberately left this without null check as there should never be a null bundle.
-        //If somehow there is - crash application since this behaviour is not expected.
-        urlString = getArguments().getString(ARGS_URL_KEY);
     }
 
     @Override
     public void onAttach(final Context context) {
         super.onAttach(context);
+
         // Host Activity will handle callbacks from task.
-        downloadCallback = (DownloadCallback<List<InfoModel>>) context;
+        downloadCallback = (DownloadCallback<List<Info>>) context;
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        setRetainInstance(true);
     }
 
     @Override
@@ -66,10 +67,10 @@ public class MainNetworkFragment extends Fragment {
     /**
      * Start non-blocking execution of DownloadTask.
      */
-    public void startDownload() {
+    public void startDownload(IInfoCommand infoCommand) {
         cancelDownload();
-        downloadTask = new DownloadTask();
-        downloadTask.execute(urlString);
+        downloadTask = new DownloadTask(downloadCallback, infoCommand);
+        downloadTask.execute();
     }
 
     /**
@@ -84,12 +85,14 @@ public class MainNetworkFragment extends Fragment {
     /**
      * Implementation of AsyncTask designed to fetch data from the network.
      */
-    private static class DownloadTask extends AsyncTask<String, Integer, DownloadTask.Result> {
+    private static class DownloadTask extends AsyncTask<Void, Integer, DownloadTask.Result> {
 
-        private DownloadCallback<List<InfoModel>> downloadCallback;
+        private DownloadCallback<List<Info>> downloadCallback;
+        private IInfoCommand infoCommand;
 
-        DownloadTask(final DownloadCallback<List<InfoModel>> callback) {
+        DownloadTask(final DownloadCallback<List<Info>> callback, IInfoCommand infoCommand) {
             downloadCallback = callback;
+            this.infoCommand = infoCommand;
         }
 
         /**
@@ -103,7 +106,7 @@ public class MainNetworkFragment extends Fragment {
                         networkInfo.getType() != ConnectivityManager.TYPE_WIFI
                                 && networkInfo.getType() != ConnectivityManager.TYPE_MOBILE) {
                     // If no connectivity, cancel task and update Callback with null data.
-                    downloadCallback.updateFromDownload(null);
+                    downloadCallback.onSuccess(null);
                     cancel(true);
                 }
             }
@@ -113,16 +116,13 @@ public class MainNetworkFragment extends Fragment {
          * Defines work to perform on the background thread.
          */
         @Override
-        protected DownloadTask.Result doInBackground(final String... urls) {
+        protected DownloadTask.Result doInBackground(final Void... irrelevant) {
             Result result = null;
-            if (!isCancelled() && urls != null && urls.length > 0) {
-                final String urlString = urls[0];
+            if (!isCancelled()) {
                 try {
-                    //URL url = new URL(urlString);
-                    //TODO delegate to network manager from here
-                    final String resultString = downloadUrl(url);
-                    if (resultString != null) {
-                        result = new Result(resultString);
+                    final List<Info> modelList = infoCommand.loadInfoList();
+                    if (modelList != null && !modelList.isEmpty()) {
+                        result = new Result(modelList);
                     } else {
                         result = new Result(new IOException("No response received."));
                     }
@@ -139,20 +139,25 @@ public class MainNetworkFragment extends Fragment {
         @Override
         protected void onPostExecute(Result result) {
             if (result != null && downloadCallback != null) {
-                if (result.mException != null) {
-                    downloadCallback.updateFromDownload(result.mException.getMessage());
-                } else if (result.mResultValue != null) {
-                    downloadCallback.updateFromDownload(result.mResultValue);
+                if (result.errorMsg != null) {
+                    downloadCallback.onError(result.errorMsg);
+                } else if (result.resultValue != null) {
+                    downloadCallback.onSuccess(result.resultValue);
                 }
                 downloadCallback.finishDownloading();
             }
+
+            clean();
         }
 
-        /**
-         * Override to add special behavior for cancelled AsyncTask.
-         */
         @Override
         protected void onCancelled(Result result) {
+            clean();
+        }
+
+        private void clean() {
+            infoCommand = null;
+            downloadCallback = null;
         }
 
         /**
@@ -161,16 +166,18 @@ public class MainNetworkFragment extends Fragment {
          * This allows you to pass exceptions to the UI thread that were thrown during doInBackground().
          */
         static class Result {
-            List<InfoModel> resultValue;
-            Exception exception;
+            List<Info> resultValue;
+            //The reason why I'm using resource message here is to prevent providing context
+            //to classes with low level logic only to be able to decipher string resources.
+            ResourceMessage errorMsg;
 
-            Result(final List<InfoModel> resultValue) {
-                //To prevent accidently changing result field from outside of this object
+            Result(final List<Info> resultValue) {
+                //To prevent accidentally changing result field from outside of this object
                 this.resultValue = new ArrayList<>(resultValue);
             }
 
             Result(final Exception exception) {
-                this.exception = exception;
+                this.errorMsg = new ResourceMessage(exception.getMessage());
             }
         }
 
