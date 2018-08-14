@@ -108,7 +108,7 @@ public class ResourceMessageFormatterTest {
 
     @Test
     public void test_BaseWithOneStringOneResInlineVar() {
-        final String resolvedRes = InstrumentationRegistry.getContext().getString(R.string.var1);
+        final String resolvedRes = InstrumentationRegistry.getTargetContext().getString(R.string.var1);
         assertThat("Resource message formatter will treat integer inline variables as string resource id " +
                         "and replace first placeholders with first provided String and second placeholder" +
                         " with string retrieved by Context from strings.xml file",

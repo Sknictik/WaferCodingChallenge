@@ -6,9 +6,11 @@ import android.net.NetworkInfo;
 import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
@@ -26,7 +28,7 @@ import sknictik.wafercodingchallenge.presentation.utils.ResourceMessage;
  * But writing my own MVP library would take too much time, so all presentation layer logic for this screen
  * will be written here.
  */
-public class MainActivity extends FragmentActivity implements DownloadCallback<List<Info>> {
+public class MainActivity extends AppCompatActivity implements DownloadCallback<List<Info>> {
 
     private static final String INFO_LIST_KEY = "infoList";
 
@@ -55,6 +57,7 @@ public class MainActivity extends FragmentActivity implements DownloadCallback<L
                 fillListAdapter(infoList);
             }
         }
+        setSupportActionBar((Toolbar) findViewById(R.id.toolbar));
     }
 
     @Override
