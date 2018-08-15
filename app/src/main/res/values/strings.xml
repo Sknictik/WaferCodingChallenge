@@ -2,6 +2,7 @@
     <string name="app_name">WaferCodingChallenge</string>
 
     <string name="no_response_error">No response received</string>
+    <string name="no_connection_error">Unable to estabilish connection to server</string>
 
     <string name="country_label">Country: %s</string>
     <string name="currency_label">Currency: %s</string>

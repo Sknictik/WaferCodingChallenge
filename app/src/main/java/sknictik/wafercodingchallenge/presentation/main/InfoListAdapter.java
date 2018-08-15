@@ -1,7 +1,6 @@
 package sknictik.wafercodingchallenge.presentation.main;
 
 import android.support.annotation.NonNull;
-import android.support.v4.util.Pair;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,9 +17,13 @@ import sknictik.wafercodingchallenge.domain.model.Info;
 
 public class InfoListAdapter extends RecyclerView.Adapter<InfoListAdapter.InfoViewHolder> {
 
+    private static final int NOTHING_SELECTED_INDEX = -1;
+
     private List<Info> infoList;
 
     private OnDeleteButtonClickedListener onDeleteButtonClickedListener;
+
+    private int openItemPosition = NOTHING_SELECTED_INDEX;
 
     InfoListAdapter(final OnDeleteButtonClickedListener onDeleteButtonClickedListener) {
         setHasStableIds(true);
@@ -43,12 +46,12 @@ public class InfoListAdapter extends RecyclerView.Adapter<InfoListAdapter.InfoVi
     @Override
     public InfoListAdapter.InfoViewHolder onCreateViewHolder(@NonNull final ViewGroup viewGroup, final int viewType) {
         final LayoutInflater inflater = LayoutInflater.from(viewGroup.getContext());
-        return new InfoViewHolder(inflater.inflate(R.layout.item_info_closed, viewGroup, false));
+        return new InfoViewHolder(inflater.inflate(R.layout.item_info, viewGroup, false));
     }
 
     @Override
     public void onBindViewHolder(@NonNull final InfoViewHolder infoViewHolder, final int position) {
-        infoViewHolder.bind(infoList.get(position), position, onDeleteButtonClickedListener);
+        infoViewHolder.bind(infoList.get(position), position);
     }
 
     @Override
@@ -74,27 +77,63 @@ public class InfoListAdapter extends RecyclerView.Adapter<InfoListAdapter.InfoVi
             root = itemView.findViewById(R.id.root);
         }
 
-        void bind(final Info info, final int position, final OnDeleteButtonClickedListener onDeleteButtonClickedListener) {
-            root.close(true);
+        void bind(final Info info, final int position) {
+            //Only one row should have opened swipe at a time.
+            //We need to close swipes in rows that were recycles from item with opened swipe.
+            if (position != openItemPosition) {
+                root.close(false);
+            }
             country.setText(country.getContext().getString(R.string.country_label, info.getCountryName()));
             currency.setText(currency.getContext().getString(R.string.currency_label, info.getCurrencyName()));
             language.setText(language.getContext().getString(R.string.language_label, info.getLanguageName()));
             foreground.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(final View view) {
-                    //On click closes all opened items
-                    //TODO not working when swiping. Try to add notify to swap listener?
-                    notifyDataSetChanged();
-                }
-            });
-            deleteBtn.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(final View view) {
-                    if (onDeleteButtonClickedListener != null) {
-                        onDeleteButtonClickedListener.onDeleteButtonClick(position);
+                    if (openItemPosition != NOTHING_SELECTED_INDEX) {
+                        //Close opened swipe in another row
+                        notifyItemChanged(openItemPosition);
+                        openItemPosition = NOTHING_SELECTED_INDEX;
                     }
                 }
             });
+            root.setOnSwipeOutListener(new SwipeRevealLayout.OnSwipeOutListener() {
+                @Override
+                public void onSwipedOut() {
+                    deleteItem(position);
+                }
+            });
+
+            root.setOnStateChangedListener(new SwipeRevealLayout.OnStateChangedListener() {
+                @Override
+                public void onOpened() {
+                    if (openItemPosition != NOTHING_SELECTED_INDEX && openItemPosition != position) {
+                        //Close already opened swipe
+                        notifyItemChanged(openItemPosition);
+                    }
+                    openItemPosition = position;
+                }
+
+                @Override
+                public void onClosed() {
+                    //Clear index of opened swipes
+                    if (openItemPosition == position) {
+                        openItemPosition = NOTHING_SELECTED_INDEX;
+                    }
+                }
+            });
+
+            deleteBtn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(final View view) {
+                    deleteItem(position);
+                }
+            });
+        }
+
+        private void deleteItem(int position) {
+            if (onDeleteButtonClickedListener != null) {
+                onDeleteButtonClickedListener.onDeleteButtonClick(position);
+            }
         }
     }
 

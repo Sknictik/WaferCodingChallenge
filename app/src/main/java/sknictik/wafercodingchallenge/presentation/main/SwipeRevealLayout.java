@@ -91,6 +91,8 @@ public class SwipeRevealLayout extends ViewGroup {
 
     private ViewDragHelper mDragHelper;
     private GestureDetectorCompat mGestureDetector;
+    private OnSwipeOutListener mOnSwipeOutListener;
+    private OnStateChangedListener mOnStateChangedListener;
 
     public SwipeRevealLayout(Context context) {
         super(context);
@@ -104,6 +106,14 @@ public class SwipeRevealLayout extends ViewGroup {
 
     public SwipeRevealLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
+    }
+
+    public void setOnSwipeOutListener(OnSwipeOutListener onSwipeOutListener) {
+        this.mOnSwipeOutListener = onSwipeOutListener;
+    }
+
+    public void setOnStateChangedListener(OnStateChangedListener onStateChangedListener) {
+        this.mOnStateChangedListener = onStateChangedListener;
     }
 
     @Nullable
@@ -365,6 +375,14 @@ public class SwipeRevealLayout extends ViewGroup {
         }
 
         ViewCompat.postInvalidateOnAnimation(this);
+        if (mOnStateChangedListener != null) {
+            ViewCompat.postOnAnimationDelayed(mMainView, new Runnable() {
+                @Override
+                public void run() {
+                    mOnStateChangedListener.onOpened();
+                }
+            }, 0);
+        }
     }
 
     /**
@@ -392,6 +410,15 @@ public class SwipeRevealLayout extends ViewGroup {
         }
 
         ViewCompat.postInvalidateOnAnimation(this);
+
+        if (mOnStateChangedListener != null) {
+            ViewCompat.postOnAnimationDelayed(mMainView, new Runnable() {
+                @Override
+                public void run() {
+                    mOnStateChangedListener.onClosed();
+                }
+            }, 0);
+        }
     }
 
     /**
@@ -609,11 +636,6 @@ public class SwipeRevealLayout extends ViewGroup {
             switch (mDragEdge) {
                 case DRAG_EDGE_RIGHT:
                     return Math.min(0, left);
-                    /*return Math.max(
-                            Math.min(left, mRectMainClose.left),
-                            mRectMainClose.left - mSecondaryView.getWidth()
-                    );*/
-
                 case DRAG_EDGE_LEFT:
                     return Math.max(
                             Math.min(left, mRectMainClose.left + mSecondaryView.getWidth()),
@@ -637,7 +659,12 @@ public class SwipeRevealLayout extends ViewGroup {
                     if (velRightExceeded) {
                         close(true);
                     } else if (velLeftExceeded) {
-                        open(true);
+                        //Swiped past middle
+                        if (Math.abs(mMainView.getLeft() * 2) > pivotHorizontal) {
+                            swipeOutView();
+                        } else {
+                            open(true);
+                        }
                     } else {
                         if (mMainView.getRight() < pivotHorizontal) {
                             open(true);
@@ -696,9 +723,39 @@ public class SwipeRevealLayout extends ViewGroup {
         }
     };
 
+    /**
+     * Swipe view out from screen completely and
+     */
+    private void swipeOutView() {
+        mIsOpenBeforeInit = false;
+
+        mDragHelper.smoothSlideViewTo(mMainView, -mRectMainClose.right, mRectMainClose.top);
+        ViewCompat.postInvalidateOnAnimation(this);
+
+        if (mOnSwipeOutListener != null) {
+            ViewCompat.postOnAnimationDelayed(mMainView, new Runnable() {
+                @Override
+                public void run() {
+                    mOnSwipeOutListener.onSwipedOut();
+                }
+            }, 200);
+        }
+    }
+
     private int pxToDp(int px) {
         Resources resources = getContext().getResources();
         DisplayMetrics metrics = resources.getDisplayMetrics();
         return (int) (px / ((float)metrics.densityDpi / DisplayMetrics.DENSITY_DEFAULT));
     }
+
+    public interface OnSwipeOutListener {
+        void onSwipedOut();
+    }
+
+    public interface OnStateChangedListener {
+        void onOpened();
+
+        void onClosed();
+    }
+
 }

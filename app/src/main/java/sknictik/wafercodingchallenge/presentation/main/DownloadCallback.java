@@ -9,12 +9,12 @@ public interface DownloadCallback<T> {
      * Indicates that the callback handler needs to update its appearance or information based on
      * the result of the task. Expected to be called from the main thread.
      */
-    void onSuccess(T result);
+    void onDownloadSuccess(T result);
 
     /**
      * Called on error result
      */
-    void onError(ResourceMessage errorMsg);
+    void onDownloadError(ResourceMessage errorMsg);
 
     /**
      * Get the device's active network status in the form of a NetworkInfo object.

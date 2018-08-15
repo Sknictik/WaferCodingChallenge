@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import sknictik.wafercodingchallenge.R;
 import sknictik.wafercodingchallenge.domain.IInfoCommand;
 import sknictik.wafercodingchallenge.domain.model.Info;
 import sknictik.wafercodingchallenge.presentation.utils.ResourceMessage;
@@ -106,7 +107,7 @@ public class MainNetworkFragment extends Fragment {
                         networkInfo.getType() != ConnectivityManager.TYPE_WIFI
                                 && networkInfo.getType() != ConnectivityManager.TYPE_MOBILE) {
                     // If no connectivity, cancel task and update Callback with null data.
-                    downloadCallback.onSuccess(null);
+                    downloadCallback.onDownloadError(new ResourceMessage(R.string.no_connection_error));
                     cancel(true);
                 }
             }
@@ -140,9 +141,9 @@ public class MainNetworkFragment extends Fragment {
         protected void onPostExecute(Result result) {
             if (result != null && downloadCallback != null) {
                 if (result.errorMsg != null) {
-                    downloadCallback.onError(result.errorMsg);
+                    downloadCallback.onDownloadError(result.errorMsg);
                 } else if (result.resultValue != null) {
-                    downloadCallback.onSuccess(result.resultValue);
+                    downloadCallback.onDownloadSuccess(result.resultValue);
                 }
                 downloadCallback.finishDownloading();
             }

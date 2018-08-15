@@ -19,7 +19,9 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.support.v7.widget.helper.ItemTouchHelper;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -33,8 +35,7 @@ import sknictik.wafercodingchallenge.presentation.utils.ResourceMessage;
 /**
  * Normally screen logic should be divided in three parts: UI logic (Activity class), Presenter and StateModel.
  */
-public class MainActivity extends AppCompatActivity implements DownloadCallback<List<Info>>,
-        SwipeToDeleteHelperCallback.OnItemDeletedListener, InfoListAdapter.OnDeleteButtonClickedListener {
+public class MainActivity extends AppCompatActivity implements DownloadCallback<List<Info>>, InfoListAdapter.OnDeleteButtonClickedListener {
 
     private static final String INFO_LIST_KEY = "infoList";
 
@@ -45,6 +46,9 @@ public class MainActivity extends AppCompatActivity implements DownloadCallback<
 
     private RecyclerView recyclerView;
     private ProgressBar progress;
+    private TextView errorText;
+    private FrameLayout progressContainer;
+
     //ArrayList instead of List for serialization in bundle
     private ArrayList<Info> infoList;
 
@@ -82,29 +86,31 @@ public class MainActivity extends AppCompatActivity implements DownloadCallback<
         recyclerView.setAdapter(new InfoListAdapter(this));
         recyclerView.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
 
-        //new ItemTouchHelper(new SwipeToDeleteHelperCallback(this)).attachToRecyclerView(recyclerView);
-
         progress = findViewById(R.id.progress);
+        errorText = findViewById(R.id.error_text);
+        progressContainer = findViewById(R.id.progress_container);
     }
 
     private void startDownload() {
         if (!isDownloading && mainNetworkFragment != null) {
+            isDownloading = true;
+            setProgressState(ProgressState.LOADING);
             // Execute the async download.
             mainNetworkFragment.startDownload(getWaferApplication().getCommandFactory().getInfoCommand());
-            isDownloading = true;
-            setProgressState(true);
         }
     }
 
     @Override
-    public void onSuccess(final List<Info> result) {
+    public void onDownloadSuccess(final List<Info> result) {
         infoList = new ArrayList<>(result);
         fillListAdapter(infoList);
+        setProgressState(ProgressState.SUCCESS);
     }
 
     @Override
-    public void onError(final ResourceMessage errorMsg) {
-        Toast.makeText(this, getWaferApplication().getResourceMessageFormatter().format(errorMsg), Toast.LENGTH_SHORT).show();
+    public void onDownloadError(final ResourceMessage errorMsg) {
+        setProgressState(ProgressState.ERROR);
+        errorText.setText(getWaferApplication().getResourceMessageFormatter().format(errorMsg));
     }
 
     @Override
@@ -125,7 +131,6 @@ public class MainActivity extends AppCompatActivity implements DownloadCallback<
     @Override
     public void finishDownloading() {
         isDownloading = false;
-        setProgressState(false);
 
         if (mainNetworkFragment != null) {
             mainNetworkFragment.cancelDownload();
@@ -136,11 +141,6 @@ public class MainActivity extends AppCompatActivity implements DownloadCallback<
     protected void onSaveInstanceState(final Bundle outState) {
         outState.putSerializable(INFO_LIST_KEY, infoList);
         super.onSaveInstanceState(outState);
-    }
-
-    @Override
-    public void onItemDeleted(final int positionOfDeletedItem) {
-        deleteItem(positionOfDeletedItem);
     }
 
     @Override
@@ -165,8 +165,33 @@ public class MainActivity extends AppCompatActivity implements DownloadCallback<
         return (WaferApplication) getApplication();
     }
 
-    private void setProgressState(final boolean isDownloading) {
-        progress.setVisibility(isDownloading ? View.VISIBLE : View.GONE);
-        recyclerView.setVisibility(isDownloading ? View.GONE : View.VISIBLE);
+    private void setProgressState(ProgressState progressState) {
+        switch (progressState) {
+            case SUCCESS: {
+                progressContainer.setVisibility(View.GONE);
+                errorText.setVisibility(View.GONE);
+                progress.setVisibility(View.GONE);
+                recyclerView.setVisibility(View.VISIBLE);
+                break;
+            }
+            case LOADING: {
+                progressContainer.setVisibility(View.VISIBLE);
+                errorText.setVisibility(View.GONE);
+                progress.setVisibility(View.VISIBLE);
+                recyclerView.setVisibility(View.GONE);
+                break;
+            }
+            case ERROR: {
+                progressContainer.setVisibility(View.VISIBLE);
+                errorText.setVisibility(View.VISIBLE);
+                progress.setVisibility(View.GONE);
+                recyclerView.setVisibility(View.GONE);
+                break;
+            }
+        }
+    }
+
+    private enum ProgressState {
+        SUCCESS, LOADING, ERROR
     }
 }
