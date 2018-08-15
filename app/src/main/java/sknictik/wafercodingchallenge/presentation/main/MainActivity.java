@@ -1,16 +1,23 @@
 package sknictik.wafercodingchallenge.presentation.main;
 
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.support.v7.widget.helper.ItemTouchHelper;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
@@ -25,10 +32,9 @@ import sknictik.wafercodingchallenge.presentation.utils.ResourceMessage;
 
 /**
  * Normally screen logic should be divided in three parts: UI logic (Activity class), Presenter and StateModel.
- * But writing my own MVP library would take too much time, so all presentation layer logic for this screen
- * will be written here.
  */
-public class MainActivity extends AppCompatActivity implements DownloadCallback<List<Info>> {
+public class MainActivity extends AppCompatActivity implements DownloadCallback<List<Info>>,
+        SwipeToDeleteHelperCallback.OnItemDeletedListener, InfoListAdapter.OnDeleteButtonClickedListener {
 
     private static final String INFO_LIST_KEY = "infoList";
 
@@ -39,7 +45,7 @@ public class MainActivity extends AppCompatActivity implements DownloadCallback<
 
     private RecyclerView recyclerView;
     private ProgressBar progress;
-    //ArrayList required for serialization in bundle
+    //ArrayList instead of List for serialization in bundle
     private ArrayList<Info> infoList;
 
     @Override
@@ -71,8 +77,13 @@ public class MainActivity extends AppCompatActivity implements DownloadCallback<
     private void initViews() {
         recyclerView = findViewById(R.id.info_list);
         recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
-        recyclerView.setAdapter(new InfoListAdapter());
+        //To prevent conflicts between horizontal and vertical scroll inside recycler view
+        recyclerView.setNestedScrollingEnabled(false);
+        recyclerView.setAdapter(new InfoListAdapter(this));
         recyclerView.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
+
+        //new ItemTouchHelper(new SwipeToDeleteHelperCallback(this)).attachToRecyclerView(recyclerView);
+
         progress = findViewById(R.id.progress);
     }
 
@@ -92,7 +103,7 @@ public class MainActivity extends AppCompatActivity implements DownloadCallback<
     }
 
     @Override
-    public void onError(ResourceMessage errorMsg) {
+    public void onError(final ResourceMessage errorMsg) {
         Toast.makeText(this, getWaferApplication().getResourceMessageFormatter().format(errorMsg), Toast.LENGTH_SHORT).show();
     }
 
@@ -121,8 +132,29 @@ public class MainActivity extends AppCompatActivity implements DownloadCallback<
         }
     }
 
-    private void fillListAdapter(List<Info> infoList) {
-        InfoListAdapter adapter = ((InfoListAdapter) recyclerView.getAdapter());
+    @Override
+    protected void onSaveInstanceState(final Bundle outState) {
+        outState.putSerializable(INFO_LIST_KEY, infoList);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    public void onItemDeleted(final int positionOfDeletedItem) {
+        deleteItem(positionOfDeletedItem);
+    }
+
+    @Override
+    public void onDeleteButtonClick(final int position) {
+        deleteItem(position);
+    }
+
+    private void deleteItem(final int position) {
+        infoList.remove(position);
+        fillListAdapter(infoList);
+    }
+
+    private void fillListAdapter(final List<Info> infoList) {
+        final InfoListAdapter adapter = (InfoListAdapter) recyclerView.getAdapter();
 
         if (adapter != null) {
             adapter.setItems(infoList);
@@ -133,14 +165,8 @@ public class MainActivity extends AppCompatActivity implements DownloadCallback<
         return (WaferApplication) getApplication();
     }
 
-    private void setProgressState(boolean isDownloading) {
+    private void setProgressState(final boolean isDownloading) {
         progress.setVisibility(isDownloading ? View.VISIBLE : View.GONE);
         recyclerView.setVisibility(isDownloading ? View.GONE : View.VISIBLE);
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        outState.putSerializable(INFO_LIST_KEY, infoList);
-        super.onSaveInstanceState(outState);
     }
 }

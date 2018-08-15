@@ -8,11 +8,11 @@ import java.io.Serializable;
  */
 public class Info implements Serializable {
 
-    private String countryName;
-    private String currencyName;
-    private String languageName;
+    private final String countryName;
+    private final String currencyName;
+    private final String languageName;
 
-    public Info(String countryName, String currencyName, String languageName) {
+    public Info(final String countryName, final String currencyName, final String languageName) {
         this.countryName = countryName;
         this.currencyName = currencyName;
         this.languageName = languageName;
