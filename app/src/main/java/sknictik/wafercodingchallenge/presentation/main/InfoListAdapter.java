@@ -107,7 +107,7 @@ public class InfoListAdapter extends RecyclerView.Adapter<InfoListAdapter.InfoVi
                 @Override
                 public void onOpened() {
                     if (openItemPosition != NOTHING_SELECTED_INDEX && openItemPosition != position) {
-                        //Close already opened swipe
+                        //Close previously opened swipe menu
                         notifyItemChanged(openItemPosition);
                     }
                     openItemPosition = position;
@@ -115,7 +115,7 @@ public class InfoListAdapter extends RecyclerView.Adapter<InfoListAdapter.InfoVi
 
                 @Override
                 public void onClosed() {
-                    //Clear index of opened swipes
+                    //Clear position of row with opened swipe menu
                     if (openItemPosition == position) {
                         openItemPosition = NOTHING_SELECTED_INDEX;
                     }
