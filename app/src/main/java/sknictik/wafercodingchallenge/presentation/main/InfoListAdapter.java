@@ -78,8 +78,8 @@ public class InfoListAdapter extends RecyclerView.Adapter<InfoListAdapter.InfoVi
         }
 
         void bind(final Info info, final int position) {
-            //Only one row should have opened swipe at a time.
-            //We need to close swipes in rows that were recycles from item with opened swipe.
+            //Only one row should have opened swipe menu at a time.
+            //We need to close swipe menu in row that was recycled.
             if (position != openItemPosition) {
                 root.close(false);
             }
